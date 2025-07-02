@@ -13,10 +13,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark"> {/* Forces dark mode */}
-      <body className={`${inter.className} relative`}>
-        <BeamsBackground className="absolute inset-0 -z-10" />
-        {children}
+    <html lang="en" className="dark">
+      <body className={`${inter.className} bg-neutral-950 text-white`}>
+        <BeamsBackground className="fixed inset-0 -z-10" />
+        <main className="relative z-10">{children}</main>
       </body>
     </html>
   )

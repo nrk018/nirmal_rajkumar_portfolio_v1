@@ -1,146 +1,199 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
 interface AnimatedGradientBackgroundProps {
-  className?: string;
-  intensity?: "subtle" | "medium" | "strong";
+    className?: string;
+    children?: React.ReactNode;
+    intensity?: "subtle" | "medium" | "strong";
 }
 
 interface Beam {
-  x: number;
-  y: number;
-  width: number;
-  length: number;
-  angle: number;
-  speed: number;
-  opacity: number;
-  hue: number;
-  pulse: number;
-  pulseSpeed: number;
+    x: number;
+    y: number;
+    width: number;
+    length: number;
+    angle: number;
+    speed: number;
+    opacity: number;
+    hue: number;
+    pulse: number;
+    pulseSpeed: number;
 }
-
-const opacityMap = {
-  subtle: 0.7,
-  medium: 0.85,
-  strong: 1,
-};
 
 function createBeam(width: number, height: number): Beam {
-  const angle = -35 + Math.random() * 10;
-  return {
-    x: Math.random() * width * 1.5 - width * 0.25,
-    y: Math.random() * height * 1.5 - height * 0.25,
-    width: 30 + Math.random() * 60,
-    length: height * 2.5,
-    angle,
-    speed: 60 + Math.random() * 60,
-    opacity: 0.1 + Math.random() * 0.15,
-    hue: 190 + Math.random() * 70,
-    pulse: Math.random() * Math.PI * 2,
-    pulseSpeed: 1 + Math.random(),
-  };
+    const angle = -35 + Math.random() * 10;
+    return {
+        x: Math.random() * width * 1.5 - width * 0.25,
+        y: Math.random() * height * 1.5 - height * 0.25,
+        width: 30 + Math.random() * 60,
+        length: height * 2.5,
+        angle: angle,
+        speed: 0.6 + Math.random() * 1.2,
+        opacity: 0.12 + Math.random() * 0.16,
+        hue: 190 + Math.random() * 70,
+        pulse: Math.random() * Math.PI * 2,
+        pulseSpeed: 0.02 + Math.random() * 0.03,
+    };
 }
 
-
-/* fixed speed of the background */
 export function BeamsBackground({
-  className,
-  intensity = "strong",
+    className,
+    intensity = "strong",
 }: AnimatedGradientBackgroundProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const beamsRef = useRef<Beam[]>([]);
-  const frameRef = useRef<number | null>(null);
-  const lastTimeRef = useRef<number>(performance.now());
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const beamsRef = useRef<Beam[]>([]);
+    const animationFrameRef = useRef<number>(0);
+    const MINIMUM_BEAMS = 20;
 
-  const resizeCanvas = (canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) => {
-    const dpr = window.devicePixelRatio || 1;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const opacityMap = {
+        subtle: 0.7,
+        medium: 0.85,
+        strong: 1,
+    };
 
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
 
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.scale(dpr, dpr);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
 
-    beamsRef.current = Array.from({ length: 30 }, () =>
-      createBeam(width, height)
-    );
-  };
+        const updateCanvasSize = () => {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = `${window.innerWidth}px`;
+            canvas.style.height = `${window.innerHeight}px`;
+            ctx.scale(dpr, dpr);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+            const totalBeams = MINIMUM_BEAMS * 1.5;
+            beamsRef.current = Array.from({ length: totalBeams }, () =>
+                createBeam(canvas.width, canvas.height)
+            );
+        };
 
-    resizeCanvas(canvas, ctx);
-    window.addEventListener("resize", () => resizeCanvas(canvas, ctx));
+        updateCanvasSize();
+        window.addEventListener("resize", updateCanvasSize);
 
-    const animate = (now: number) => {
-      const delta = (now - lastTimeRef.current) / 1000;
-      lastTimeRef.current = now;
+        function resetBeam(beam: Beam, index: number, totalBeams: number) {
+            if (!canvas) return beam;
+            
+            const column = index % 3;
+            const spacing = canvas.width / 3;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.filter = "blur(25px)";
-
-      const beams = beamsRef.current;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-
-      for (let i = 0; i < beams.length; i++) {
-        const beam = beams[i];
-
-        beam.y -= beam.speed * delta;
-        beam.pulse += beam.pulseSpeed * delta;
-
-        if (beam.y + beam.length < -100) {
-          const column = i % 3;
-          const spacing = width / 3;
-          beam.y = height + 100;
-          beam.x = column * spacing + spacing / 2 + (Math.random() - 0.5) * spacing * 0.5;
+            beam.y = canvas.height + 100;
+            beam.x =
+                column * spacing +
+                spacing / 2 +
+                (Math.random() - 0.5) * spacing * 0.5;
+            beam.width = 100 + Math.random() * 100;
+            beam.speed = 0.5 + Math.random() * 0.4;
+            beam.hue = 190 + (index * 70) / totalBeams;
+            beam.opacity = 0.2 + Math.random() * 0.1;
+            return beam;
         }
 
-        ctx.save();
-        ctx.translate(beam.x, beam.y);
-        ctx.rotate((beam.angle * Math.PI) / 180);
+        function drawBeam(ctx: CanvasRenderingContext2D, beam: Beam) {
+            ctx.save();
+            ctx.translate(beam.x, beam.y);
+            ctx.rotate((beam.angle * Math.PI) / 180);
 
-        const pulseOpacity =
-          beam.opacity *
-          (0.8 + Math.sin(beam.pulse) * 0.2) *
-          opacityMap[intensity];
+            // Calculate pulsing opacity
+            const pulsingOpacity =
+                beam.opacity *
+                (0.8 + Math.sin(beam.pulse) * 0.2) *
+                opacityMap[intensity];
 
-        const gradient = ctx.createLinearGradient(0, 0, 0, beam.length);
-        gradient.addColorStop(0, `hsla(${beam.hue}, 85%, 65%, 0)`);
-        gradient.addColorStop(0.1, `hsla(${beam.hue}, 85%, 65%, ${pulseOpacity * 0.5})`);
-        gradient.addColorStop(0.4, `hsla(${beam.hue}, 85%, 65%, ${pulseOpacity})`);
-        gradient.addColorStop(0.6, `hsla(${beam.hue}, 85%, 65%, ${pulseOpacity})`);
-        gradient.addColorStop(0.9, `hsla(${beam.hue}, 85%, 65%, ${pulseOpacity * 0.5})`);
-        gradient.addColorStop(1, `hsla(${beam.hue}, 85%, 65%, 0)`);
+            const gradient = ctx.createLinearGradient(0, 0, 0, beam.length);
 
-        ctx.fillStyle = gradient;
-        ctx.fillRect(-beam.width / 2, 0, beam.width, beam.length);
-        ctx.restore();
-      }
+            // Enhanced gradient with multiple color stops
+            gradient.addColorStop(0, `hsla(${beam.hue}, 85%, 65%, 0)`);
+            gradient.addColorStop(
+                0.1,
+                `hsla(${beam.hue}, 85%, 65%, ${pulsingOpacity * 0.5})`
+            );
+            gradient.addColorStop(
+                0.4,
+                `hsla(${beam.hue}, 85%, 65%, ${pulsingOpacity})`
+            );
+            gradient.addColorStop(
+                0.6,
+                `hsla(${beam.hue}, 85%, 65%, ${pulsingOpacity})`
+            );
+            gradient.addColorStop(
+                0.9,
+                `hsla(${beam.hue}, 85%, 65%, ${pulsingOpacity * 0.5})`
+            );
+            gradient.addColorStop(1, `hsla(${beam.hue}, 85%, 65%, 0)`);
 
-      frameRef.current = requestAnimationFrame(animate);
-    };
+            ctx.fillStyle = gradient;
+            ctx.fillRect(-beam.width / 2, 0, beam.width, beam.length);
+            ctx.restore();
+        }
 
-    frameRef.current = requestAnimationFrame(animate);
+        function animate() {
+            if (!canvas || !ctx) return;
 
-    return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-      window.removeEventListener("resize", () => resizeCanvas(canvas, ctx));
-    };
-  }, [intensity]);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.filter = "blur(35px)";
 
-  return (
-    <div className={cn("fixed inset-0 -z-10 overflow-hidden bg-black", className)}>
-      <canvas ref={canvasRef} className="absolute inset-0" />
-    </div>
-  );
+            const totalBeams = beamsRef.current.length;
+            beamsRef.current.forEach((beam, index) => {
+                beam.y -= beam.speed;
+                beam.pulse += beam.pulseSpeed;
+
+                // Reset beam when it goes off screen
+                if (beam.y + beam.length < -100) {
+                    resetBeam(beam, index, totalBeams);
+                }
+
+                drawBeam(ctx, beam);
+            });
+
+            animationFrameRef.current = requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        return () => {
+            window.removeEventListener("resize", updateCanvasSize);
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+        };
+    }, [intensity]);
+
+    return (
+        <div
+            className={cn(
+                "relative min-h-screen w-full overflow-hidden bg-neutral-950",
+                className
+            )}
+        >
+            <canvas
+                ref={canvasRef}
+                className="absolute inset-0"
+                style={{ filter: "blur(15px)" }}
+            />
+
+            <motion.div
+                className="absolute inset-0 bg-neutral-950/5"
+                animate={{
+                    opacity: [0.05, 0.15, 0.05],
+                }}
+                transition={{
+                    duration: 10,
+                    ease: "easeInOut",
+                    repeat: Number.POSITIVE_INFINITY,
+                }}
+                style={{
+                    backdropFilter: "blur(50px)",
+                }}
+            />
+
+        </div>
+    );
 }
